@@ -57,6 +57,12 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        strength: {
+          weak: "hsl(var(--strength-weak))",
+          moderate: "hsl(var(--strength-moderate))",
+          strong: "hsl(var(--strength-strong))",
+          "very-strong": "hsl(var(--strength-very-strong))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
