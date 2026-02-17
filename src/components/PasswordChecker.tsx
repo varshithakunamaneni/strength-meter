@@ -1,5 +1,6 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { Shield, Eye, EyeOff, Check, X, Copy, RefreshCw, Lightbulb } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 type StrengthLevel = "none" | "weak" | "moderate" | "strong" | "very-strong";
 
@@ -59,14 +60,23 @@ const strengthConfig: Record<Exclude<StrengthLevel, "none">, { label: string; co
   "very-strong": { label: "Very Strong", colorClass: "bg-strength-very-strong" },
 };
 
-export default function PasswordChecker() {
+export default function PasswordChecker({ onCheckLogged }: { onCheckLogged?: () => void }) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [copied, setCopied] = useState(false);
+  const lastLogged = useRef<string>("");
 
   const analysis = useMemo(() => analyzePassword(password), [password]);
   const config = analysis.level !== "none" ? strengthConfig[analysis.level] : null;
   const suggestions = analysis.criteria.filter((c) => !c.met);
+
+  // Log strength anonymously (debounced, only when level changes)
+  const logStrength = useCallback(async (level: string, score: number) => {
+    if (level === "none" || level === lastLogged.current) return;
+    lastLogged.current = level;
+    await supabase.from("strength_checks" as any).insert({ strength_level: level, score } as any);
+    onCheckLogged?.();
+  }, [onCheckLogged]);
 
   const handleCopy = useCallback(async () => {
     if (!password) return;
@@ -100,7 +110,11 @@ export default function PasswordChecker() {
           <input
             type={showPassword ? "text" : "password"}
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              const a = analyzePassword(e.target.value);
+              logStrength(a.level, a.score);
+            }}
             placeholder="Enter password..."
             className="w-full h-12 rounded-lg border border-border bg-secondary px-4 pr-12 text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
           />
