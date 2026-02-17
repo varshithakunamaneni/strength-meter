@@ -1,5 +1,6 @@
 import { Shield } from "lucide-react";
 import PasswordChecker from "@/components/PasswordChecker";
+import SecurityInsights from "@/components/SecurityInsights";
 
 const Index = () => {
   return (
@@ -23,6 +24,7 @@ const Index = () => {
         </div>
 
         <PasswordChecker />
+        <SecurityInsights />
       </div>
     </div>
   );
