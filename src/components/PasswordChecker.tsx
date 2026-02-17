@@ -1,11 +1,12 @@
-import { useState, useMemo } from "react";
-import { Shield, Eye, EyeOff, Check, X } from "lucide-react";
+import { useState, useMemo, useCallback } from "react";
+import { Shield, Eye, EyeOff, Check, X, Copy, RefreshCw, Lightbulb } from "lucide-react";
 
 type StrengthLevel = "none" | "weak" | "moderate" | "strong" | "very-strong";
 
 interface Criteria {
   label: string;
   met: boolean;
+  suggestion: string;
 }
 
 function analyzePassword(password: string): {
@@ -16,11 +17,11 @@ function analyzePassword(password: string): {
   if (!password) return { level: "none", score: 0, criteria: [] };
 
   const criteria: Criteria[] = [
-    { label: "At least 8 characters", met: password.length >= 8 },
-    { label: "Uppercase letter", met: /[A-Z]/.test(password) },
-    { label: "Lowercase letter", met: /[a-z]/.test(password) },
-    { label: "Number", met: /[0-9]/.test(password) },
-    { label: "Special character", met: /[^A-Za-z0-9]/.test(password) },
+    { label: "At least 8 characters", met: password.length >= 8, suggestion: "Make it at least 8 characters long" },
+    { label: "Uppercase letter", met: /[A-Z]/.test(password), suggestion: "Add an uppercase letter (A-Z)" },
+    { label: "Lowercase letter", met: /[a-z]/.test(password), suggestion: "Add a lowercase letter (a-z)" },
+    { label: "Number", met: /[0-9]/.test(password), suggestion: "Include a number (0-9)" },
+    { label: "Special character", met: /[^A-Za-z0-9]/.test(password), suggestion: "Use a special character (!@#$%)" },
   ];
 
   const score = criteria.filter((c) => c.met).length;
@@ -28,6 +29,27 @@ function analyzePassword(password: string): {
     score <= 1 ? "weak" : score <= 2 ? "moderate" : score <= 3 ? "strong" : "very-strong";
 
   return { level, score, criteria };
+}
+
+function generateStrongPassword(length = 16): string {
+  const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const lower = "abcdefghijklmnopqrstuvwxyz";
+  const nums = "0123456789";
+  const special = "!@#$%^&*_+-=";
+  const all = upper + lower + nums + special;
+
+  let pw = [
+    upper[Math.floor(Math.random() * upper.length)],
+    lower[Math.floor(Math.random() * lower.length)],
+    nums[Math.floor(Math.random() * nums.length)],
+    special[Math.floor(Math.random() * special.length)],
+  ];
+
+  for (let i = pw.length; i < length; i++) {
+    pw.push(all[Math.floor(Math.random() * all.length)]);
+  }
+
+  return pw.sort(() => Math.random() - 0.5).join("");
 }
 
 const strengthConfig: Record<Exclude<StrengthLevel, "none">, { label: string; colorClass: string }> = {
@@ -40,11 +62,24 @@ const strengthConfig: Record<Exclude<StrengthLevel, "none">, { label: string; co
 export default function PasswordChecker() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [checked, setChecked] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const analysis = useMemo(() => analyzePassword(password), [password]);
-  const showResult = checked && password.length > 0;
   const config = analysis.level !== "none" ? strengthConfig[analysis.level] : null;
+  const suggestions = analysis.criteria.filter((c) => !c.met);
+
+  const handleCopy = useCallback(async () => {
+    if (!password) return;
+    await navigator.clipboard.writeText(password);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [password]);
+
+  const handleGenerate = useCallback(() => {
+    const pw = generateStrongPassword();
+    setPassword(pw);
+    setShowPassword(true);
+  }, []);
 
   return (
     <div className="w-full max-w-md mx-auto">
@@ -56,19 +91,16 @@ export default function PasswordChecker() {
           </div>
           <div>
             <h2 className="text-lg font-semibold font-mono text-foreground">Check Your Password</h2>
-            <p className="text-sm text-muted-foreground">Enter a password to analyze its strength</p>
+            <p className="text-sm text-muted-foreground">Type to analyze strength in real time</p>
           </div>
         </div>
 
         {/* Input */}
-        <div className="relative mb-4">
+        <div className="relative mb-3">
           <input
             type={showPassword ? "text" : "password"}
             value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              setChecked(false);
-            }}
+            onChange={(e) => setPassword(e.target.value)}
             placeholder="Enter password..."
             className="w-full h-12 rounded-lg border border-border bg-secondary px-4 pr-12 text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
           />
@@ -76,23 +108,34 @@ export default function PasswordChecker() {
             type="button"
             onClick={() => setShowPassword(!showPassword)}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            aria-label={showPassword ? "Hide password" : "Show password"}
           >
             {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
           </button>
         </div>
 
-        {/* Button */}
-        <button
-          onClick={() => setChecked(true)}
-          disabled={!password}
-          className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-        >
-          Check Strength
-        </button>
+        {/* Action buttons */}
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={handleGenerate}
+            className="flex-1 h-10 rounded-lg border border-border bg-secondary text-secondary-foreground text-sm font-medium flex items-center justify-center gap-2 hover:bg-muted transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Generate
+          </button>
+          <button
+            onClick={handleCopy}
+            disabled={!password}
+            className="flex-1 h-10 rounded-lg border border-border bg-secondary text-secondary-foreground text-sm font-medium flex items-center justify-center gap-2 hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <Copy className="w-4 h-4" />
+            {copied ? "Copied!" : "Copy"}
+          </button>
+        </div>
 
-        {/* Results */}
-        {showResult && config && (
-          <div className="mt-6 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        {/* Live Results */}
+        {password.length > 0 && config && (
+          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
             {/* Label */}
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Strength</span>
@@ -110,18 +153,36 @@ export default function PasswordChecker() {
             </div>
 
             {/* Criteria */}
-            <div className="space-y-2 pt-2">
+            <div className="space-y-2 pt-1">
               {analysis.criteria.map((c) => (
                 <div key={c.label} className="flex items-center gap-2 text-sm">
                   {c.met ? (
-                    <Check className="w-4 h-4 text-strength-very-strong" />
+                    <Check className="w-4 h-4 text-strength-very-strong shrink-0" />
                   ) : (
-                    <X className="w-4 h-4 text-strength-weak" />
+                    <X className="w-4 h-4 text-strength-weak shrink-0" />
                   )}
                   <span className={c.met ? "text-foreground" : "text-muted-foreground"}>{c.label}</span>
                 </div>
               ))}
             </div>
+
+            {/* Suggestions */}
+            {suggestions.length > 0 && (
+              <div className="mt-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
+                <div className="flex items-center gap-2 mb-2">
+                  <Lightbulb className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-semibold text-primary font-mono">Suggestions</span>
+                </div>
+                <ul className="space-y-1">
+                  {suggestions.map((s) => (
+                    <li key={s.label} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                      <span className="text-primary mt-0.5">›</span>
+                      {s.suggestion}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
       </div>
