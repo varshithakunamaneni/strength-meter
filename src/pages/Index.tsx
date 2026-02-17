@@ -1,8 +1,13 @@
+import { useState, useCallback } from "react";
 import { Shield } from "lucide-react";
 import PasswordChecker from "@/components/PasswordChecker";
+import UsageStats from "@/components/UsageStats";
 import SecurityInsights from "@/components/SecurityInsights";
 
 const Index = () => {
+  const [statsKey, setStatsKey] = useState(0);
+  const refreshStats = useCallback(() => setStatsKey((k) => k + 1), []);
+
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-12">
       {/* Grid background effect */}
@@ -23,7 +28,8 @@ const Index = () => {
           </p>
         </div>
 
-        <PasswordChecker />
+        <PasswordChecker onCheckLogged={refreshStats} />
+        <UsageStats key={statsKey} />
         <SecurityInsights />
       </div>
     </div>
